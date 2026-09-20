@@ -44,8 +44,9 @@
       <h3>Analyzed Asset Image</h3>
       <img id="imagePreview" src="" alt="Forest Asset Preview">
       
-      <h3>Calculated Biomass & Yield Metrics</h3>
+      <h3>Calculated Biomass & Tree Count</h3>
       <div class="metric"><span>Vegetation Index (ExG):</span> <strong id="indexResult">-</strong></div>
+      <div class="metric"><span>Estimated Tree Count:</span> <strong id="treeCountResult">-</strong></div>
       <div class="metric"><span>Estimated Carbon Tonnage:</span> <strong id="valueResult">-</strong></div>
 
       <h3>On-Chain Record (Polygon Amoy Testnet)</h3>
@@ -68,7 +69,7 @@
       }
     }
 
-    // Image processing algorithm (Excess Green Vegetation Index)
+    // Image processing algorithm (Excess Green Vegetation Index + Area-Based Tree Estimation)
     document.getElementById('imageInput').addEventListener('change', function(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -98,11 +99,25 @@
           }
 
           const greenRatio = (greenPixels / totalPixels).toFixed(2);
-          const simulatedCarbonValue = (greenRatio * 12.5).toFixed(2) + " tCO2e";
-          const tokensToMint = (greenRatio * 100).toFixed(0) + " FOR";
 
+          // METHOD 1: AREA-BASED TREE COUNT ESTIMATION
+          // Assumes an estimated spatial resolution (meters per pixel) and average crown size
+          const metersPerPixel = 0.1; // ~10 cm per pixel scale
+          const totalGreenAreaSqMeters = greenPixels * Math.pow(metersPerPixel, 2);
+          
+          const avgCrownDiameterMeters = 5.0; // Average mature canopy diameter
+          const avgCrownAreaSqMeters = Math.PI * Math.pow(avgCrownDiameterMeters / 2, 2); // ~19.63 sq.m per tree
+          
+          const estimatedTrees = Math.max(1, Math.round(totalGreenAreaSqMeters / avgCrownAreaSqMeters));
+
+          // Calculate carbon and token metrics based on estimated trees and green coverage
+          const simulatedCarbonValue = (estimatedTrees * 0.25).toFixed(2) + " tCO2e";
+          const tokensToMint = (estimatedTrees * 10).toFixed(0) + " FOR";
+
+          // UI Rendering
           document.getElementById('imagePreview').src = e.target.result;
           document.getElementById('indexResult').innerText = (greenRatio * 100) + "% Coverage";
+          document.getElementById('treeCountResult').innerText = "~" + estimatedTrees + " trees";
           document.getElementById('valueResult').innerText = simulatedCarbonValue;
           document.getElementById('tokenResult').innerText = tokensToMint;
 
