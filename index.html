@@ -9,7 +9,7 @@
     .card { border: 1px solid #e1e4e8; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .btn { background-color: #2ea44f; color: white; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 8px; }
     .btn:hover { background-color: #2c974b; }
-    input[type="password"], input[type="file"] { width: 100%; padding: 8px; margin: 8px 0 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="password"], input[type="file"], select { width: 100%; padding: 8px; margin: 8px 0 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
     img { max-width: 100%; height: auto; border-radius: 6px; margin-top: 1rem; }
     .metric { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
     .error { color: #d73a49; font-size: 14px; display: none; margin-bottom: 10px; }
@@ -35,8 +35,18 @@
   <!-- APPLICATION CONTAINER (Hidden until authenticated) -->
   <div id="appCard" class="card" style="display:none;">
     <h2>Forest Plot Analysis</h2>
-    <p>Upload a canopy image or capture a live plot photo using your device camera.</p>
+    <p>Select your photo source scale and upload or capture an image to analyze.</p>
 
+    <!-- SCALE SELECTOR -->
+    <label for="scaleSelect"><strong>Photo Source Scale:</strong></label>
+    <select id="scaleSelect" onchange="processImage()">
+      <option value="0.05">Phone / Handheld (1–5m close-up)</option>
+      <option value="0.1">Low-Altitude Drone (10–50m plot view)</option>
+      <option value="1.0">High Drone / Wide Aerial Plot</option>
+      <option value="3.5" selected>Satellite / City Wide View (e.g. Hyde Park)</option>
+    </select>
+
+    <label for="imageInput"><strong>Select Image:</strong></label>
     <input type="file" id="imageInput" accept="image/*" capture="environment">
 
     <div id="previewCard" style="display:none; margin-top: 1rem;">
@@ -58,6 +68,7 @@
   <script>
     // ACCESS PASSCODE FOR FOREST MAP
     const MVP_PASSCODE = "Forest2026"; 
+    let currentLoadedImage = null;
 
     function checkAuth() {
       const input = document.getElementById('passcodeInput').value;
@@ -69,7 +80,7 @@
       }
     }
 
-    // Image processing algorithm (Excess Green Vegetation Index + Area-Based Tree Estimation)
+    // Handle File Input Selection
     document.getElementById('imageInput').addEventListener('change', function(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -78,55 +89,65 @@
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          const scale = Math.min(1, 800 / Math.max(img.width, img.height));
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          
-          let greenPixels = 0;
-          let totalPixels = data.length / 4;
-
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i], g = data[i + 1], b = data[i + 2];
-            const exg = (2 * g) - r - b;
-            if (exg > 20) greenPixels++;
-          }
-
-          const greenRatio = (greenPixels / totalPixels).toFixed(2);
-
-          // METHOD 1: AREA-BASED TREE COUNT ESTIMATION
-          // Assumes an estimated spatial resolution (meters per pixel) and average crown size
-          const metersPerPixel = 0.1; // ~10 cm per pixel scale
-          const totalGreenAreaSqMeters = greenPixels * Math.pow(metersPerPixel, 2);
-          
-          const avgCrownDiameterMeters = 5.0; // Average mature canopy diameter
-          const avgCrownAreaSqMeters = Math.PI * Math.pow(avgCrownDiameterMeters / 2, 2); // ~19.63 sq.m per tree
-          
-          const estimatedTrees = Math.max(1, Math.round(totalGreenAreaSqMeters / avgCrownAreaSqMeters));
-
-          // Calculate carbon and token metrics based on estimated trees and green coverage
-          const simulatedCarbonValue = (estimatedTrees * 0.25).toFixed(2) + " tCO2e";
-          const tokensToMint = (estimatedTrees * 10).toFixed(0) + " FOR";
-
-          // UI Rendering
+          currentLoadedImage = img;
           document.getElementById('imagePreview').src = e.target.result;
-          document.getElementById('indexResult').innerText = (greenRatio * 100) + "% Coverage";
-          document.getElementById('treeCountResult').innerText = "~" + estimatedTrees + " trees";
-          document.getElementById('valueResult').innerText = simulatedCarbonValue;
-          document.getElementById('tokenResult').innerText = tokensToMint;
-
-          document.getElementById('previewCard').style.display = 'block';
+          processImage();
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     });
+
+    // Image processing and calculation function
+    function processImage() {
+      if (!currentLoadedImage) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      const scale = Math.min(1, 800 / Math.max(currentLoadedImage.width, currentLoadedImage.height));
+      canvas.width = currentLoadedImage.width * scale;
+      canvas.height = currentLoadedImage.height * scale;
+      ctx.drawImage(currentLoadedImage, 0, 0, canvas.width, canvas.height);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      let greenPixels = 0;
+      let totalPixels = data.length / 4;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const exg = (2 * g) - r - b;
+        if (exg > 20) greenPixels++;
+      }
+
+      const greenRatio = (greenPixels / totalPixels).toFixed(2);
+
+      // Read scale multiplier selected by the user
+      const metersPerPixel = parseFloat(document.getElementById('scaleSelect').value);
+      
+      // Calculate total physical green area covered in the image
+      const totalGreenAreaSqMeters = greenPixels * Math.pow(metersPerPixel, 2);
+      
+      // Average mature canopy crown diameter (~5 meters width = 19.63 sq.m per tree)
+      const avgCrownDiameterMeters = 5.0; 
+      const avgCrownAreaSqMeters = Math.PI * Math.pow(avgCrownDiameterMeters / 2, 2); 
+      
+      const estimatedTrees = Math.max(1, Math.round(totalGreenAreaSqMeters / avgCrownAreaSqMeters));
+
+      // Calculate carbon metrics based on calculated trees
+      const simulatedCarbonValue = (estimatedTrees * 0.25).toLocaleString('en-US', {maximumFractionDigits: 1}) + " tCO2e";
+      const tokensToMint = (estimatedTrees * 10).toLocaleString('en-US') + " FOR";
+
+      // Render Metrics in UI
+      document.getElementById('indexResult').innerText = (greenRatio * 100).toFixed(0) + "% Coverage";
+      document.getElementById('treeCountResult').innerText = "~" + estimatedTrees.toLocaleString('en-US') + " trees";
+      document.getElementById('valueResult').innerText = simulatedCarbonValue;
+      document.getElementById('tokenResult').innerText = tokensToMint;
+
+      document.getElementById('previewCard').style.display = 'block';
+    }
   </script>
 </body>
 </html>
