@@ -48,7 +48,8 @@
     </select>
 
     <label for="imageInput"><strong>Select Image:</strong></label>
-    <input type="file" id="imageInput" accept="image/*" capture="environment">
+    <!-- Rimosso capture="environment" per abilitare la scelta tra Galleria/Archivio e Fotocamera -->
+    <input type="file" id="imageInput" accept="image/*">
 
     <div id="previewCard" style="display:none; margin-top: 1rem;">
       <hr>
