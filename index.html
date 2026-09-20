@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forest Map — Asset Analysis PoC</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; color: #24292e; }
+    .card { border: 1px solid #e1e4e8; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .btn { background-color: #2ea44f; color: white; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 8px; }
+    .btn:hover { background-color: #2c974b; }
+    input[type="password"], input[type="file"] { width: 100%; padding: 8px; margin: 8px 0 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    img { max-width: 100%; height: auto; border-radius: 6px; margin-top: 1rem; }
+    .metric { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .error { color: #d73a49; font-size: 14px; display: none; margin-bottom: 10px; }
+    .header { text-align: center; margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🌲 Forest Map</h1>
+    <p>Real-Time Biomass Estimation & Asset Tokenization MVP</p>
+  </div>
+
+  <!-- LOGIN CONTAINER -->
+  <div id="loginCard" class="card">
+    <h2>🔒 Restricted Access</h2>
+    <p>Please enter your passcode to launch Forest Map.</p>
+    <div id="errorMsg" class="error">Incorrect passcode. Try again.</div>
+    <input type="password" id="passcodeInput" placeholder="Enter passcode">
+    <button class="btn" onclick="checkAuth()">Access Forest Map</button>
+  </div>
+
+  <!-- APPLICATION CONTAINER (Hidden until authenticated) -->
+  <div id="appCard" class="card" style="display:none;">
+    <h2>Forest Plot Analysis</h2>
+    <p>Upload a canopy image or capture a live plot photo using your device camera.</p>
+
+    <input type="file" id="imageInput" accept="image/*" capture="environment">
+
+    <div id="previewCard" style="display:none; margin-top: 1rem;">
+      <hr>
+      <h3>Analyzed Asset Image</h3>
+      <img id="imagePreview" src="" alt="Forest Asset Preview">
+      
+      <h3>Calculated Biomass & Yield Metrics</h3>
+      <div class="metric"><span>Vegetation Index (ExG):</span> <strong id="indexResult">-</strong></div>
+      <div class="metric"><span>Estimated Carbon Tonnage:</span> <strong id="valueResult">-</strong></div>
+
+      <h3>On-Chain Record (Polygon Amoy Testnet)</h3>
+      <div class="metric"><span>Contract Target:</span> <strong>ERC-20 (Forest Credit)</strong></div>
+      <div class="metric"><span>Simulated Mint Amount:</span> <strong id="tokenResult">-</strong></div>
+    </div>
+  </div>
+
+  <script>
+    // ACCESS PASSCODE FOR FOREST MAP
+    const MVP_PASSCODE = "Forest2026"; 
+
+    function checkAuth() {
+      const input = document.getElementById('passcodeInput').value;
+      if (input === MVP_PASSCODE) {
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('appCard').style.display = 'block';
+      } else {
+        document.getElementById('errorMsg').style.display = 'block';
+      }
+    }
+
+    // Image processing algorithm (Excess Green Vegetation Index)
+    document.getElementById('imageInput').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          let greenPixels = 0;
+          let totalPixels = data.length / 4;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const exg = (2 * g) - r - b;
+            if (exg > 20) greenPixels++;
+          }
+
+          const greenRatio = (greenPixels / totalPixels).toFixed(2);
+          const simulatedCarbonValue = (greenRatio * 12.5).toFixed(2) + " tCO2e";
+          const tokensToMint = (greenRatio * 100).toFixed(0) + " FOR";
+
+          document.getElementById('imagePreview').src = e.target.result;
+          document.getElementById('indexResult').innerText = (greenRatio * 100) + "% Coverage";
+          document.getElementById('valueResult').innerText = simulatedCarbonValue;
+          document.getElementById('tokenResult').innerText = tokensToMint;
+
+          document.getElementById('previewCard').style.display = 'block';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
